@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game AI: Batu Gunting Kertas</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #webcam-container {
+            margin-top: 10px;
+            border: 8px solid #16213e;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        button {
+            background: linear-gradient(135deg, #0f3460, #e94560);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(233, 69, 96, 0.6);
+        }
+
+        #label-container {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .card {
+            padding: 20px;
+            width: 120px;
+            text-align: center;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            opacity: 0.2; /* Redup jika tidak terdeteksi */
+            border: 2px solid transparent;
+        }
+
+        /* Warna Sesuai Permintaan */
+        .batu { background-color: #ff4d4d; color: white; }    /* Merah */
+        .gunting { background-color: #ffd700; color: #333; } /* Kuning */
+        .kertas { background-color: #2ecc71; color: white; }  /* Hijau */
+
+        /* Efek Menyala saat terdeteksi */
+        .active {
+            opacity: 1 !important;
+            transform: translateY(-15px);
+            box-shadow: 0 10px 25px rgba(255,255,255,0.2);
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>AI Image Classifier</h2>
+    <button type="button" onclick="init()">START CAMERA</button>
+    
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    
+    <script type="text/javascript">
+        // URL Model yang kamu berikan
+        const URL = "https://teachablemachine.withgoogle.com/models/oRvtUVE8J/";
+
+        let model, webcam, labelContainer, maxPredictions;
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            const flip = true; 
+            webcam = new tmImage.Webcam(300, 300, flip); 
+            await webcam.setup(); 
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            
+            // Siapkan kartu label
+            labelContainer.innerHTML = "";
+            for (let i = 0; i < maxPredictions; i++) {
+                const card = document.createElement("div");
+                card.classList.add("card");
+                labelContainer.appendChild(card);
+            }
+        }
+
+        async function loop() {
+            webcam.update();
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            for (let i = 0; i < maxPredictions; i++) {
+                const className = prediction[i].className; // Tanpa lowercase dulu untuk cek
+                const prob = prediction[i].probability;
+                const element = labelContainer.childNodes[i];
+
+                element.innerHTML = className + "<br>" + (prob * 100).toFixed(0) + "%";
+
+                // Logika pewarnaan berdasarkan nama class
+                const name = className.toLowerCase();
+                if (name.includes("batu")) element.className = "card batu";
+                else if (name.includes("gunting")) element.className = "card gunting";
+                else if (name.includes("kertas")) element.className = "card kertas";
+                else element.className = "card";
+
+                // Beri efek 'active' jika probabilitas di atas 85%
+                if (prob > 0.85) {
+                    element.classList.add("active");
+                }
+            }
+        }
+    </script>
+</body>
+</html>
